@@ -77,52 +77,52 @@ const VoiceInput = () => {
         lastSpeechTimeRef.current = Date.now();
         setCountdown(null);
 
-        let interimTranscript = '';
-        let finalTranscript = '';
+        // Helper for deduplication
+        const smartJoin = (current, next) => {
+            if (!current) return next;
+            if (!next) return current;
 
+            const curNorm = current.trim().toLowerCase();
+            const nextNorm = next.trim().toLowerCase();
+            
+            // 1. Check if 'next' is fully contained at end of 'current'
+            if (curNorm.endsWith(nextNorm)) {
+                return current; 
+            }
+            
+            // 2. Check for overlap
+            const maxLen = Math.min(curNorm.length, nextNorm.length);
+            for (let i = maxLen; i >= 1; i--) {
+                if (curNorm.slice(-i) === nextNorm.slice(0, i)) {
+                    // Overlap found
+                    const remainder = next.trim().slice(i).trim();
+                    if (remainder) {
+                         return current.trim() + " " + remainder;
+                    } else {
+                         return current;
+                    }
+                }
+            }
+            
+            return current.trim() + " " + next.trim();
+        };
+
+        let finalBuilder = '';
+        let interimBuilder = '';
+
+        // Reconstruct the full transcript from all results using smartJoin
         for (let i = 0; i < event.results.length; ++i) {
-          let transcriptChunk = event.results[i][0].transcript;
-          
-          if (event.results[i].isFinal) {
-             // Deduplication check: if the new chunk is identical to the end of finalTranscript, skip it
-             // normalized check
-             const lastChunk = finalTranscript.trim().split(' ').pop();
-             const newChunkClean = transcriptChunk.trim();
-             
-             // Only skip if it's a significant duplication (longer than 2 chars) and matches exactly
-             if (lastChunk && lastChunk.length > 2 && lastChunk.toLowerCase() === newChunkClean.toLowerCase()) {
-                 continue;
-             }
-             
-             // Space handling
-             if (finalTranscript && !finalTranscript.endsWith(' ') && !transcriptChunk.startsWith(' ')) {
-                 finalTranscript += ' ';
-             }
-             finalTranscript += transcriptChunk;
-          } else {
-             // Space handling for interim
-             if (interimTranscript && !interimTranscript.endsWith(' ') && !transcriptChunk.startsWith(' ')) {
-                interimTranscript += ' ';
-             }
-             interimTranscript += transcriptChunk;
-          }
+            const chunk = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                finalBuilder = smartJoin(finalBuilder, chunk);
+            } else {
+                interimBuilder = smartJoin(interimBuilder, chunk);
+            }
         }
 
-        // ANDROID FIX: Deduplicate text
-        // On some Android devices, the interim transcript includes the already finalized text.
-        let currentText = finalTranscript + interimTranscript;
-        
-        // Use normalized comparison
-        const f = finalTranscript.trim().toLowerCase();
-        const i_text = interimTranscript.trim().toLowerCase();
-
-        // If interim starts with final, use interim
-        if (f.length > 0 && i_text.startsWith(f)) {
-            currentText = interimTranscript;
-        }
-
-        // Extra cleanup for display: remove excessive spaces
-        currentText = currentText.replace(/\s+/g, ' ').trim();
+        // Combine Final + Interim with smartJoin logic as well
+        // We shouldn't just append interim to final blindly, overlap might exist here too
+        let currentText = smartJoin(finalBuilder, interimBuilder);
 
         setDetectedText(currentText);
         detectedTextRef.current = currentText; // Update ref for interval
