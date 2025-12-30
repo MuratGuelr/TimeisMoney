@@ -81,25 +81,48 @@ const VoiceInput = () => {
         let finalTranscript = '';
 
         for (let i = 0; i < event.results.length; ++i) {
+          let transcriptChunk = event.results[i][0].transcript;
+          
           if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
+             // Deduplication check: if the new chunk is identical to the end of finalTranscript, skip it
+             // normalized check
+             const lastChunk = finalTranscript.trim().split(' ').pop();
+             const newChunkClean = transcriptChunk.trim();
+             
+             // Only skip if it's a significant duplication (longer than 2 chars) and matches exactly
+             if (lastChunk && lastChunk.length > 2 && lastChunk.toLowerCase() === newChunkClean.toLowerCase()) {
+                 continue;
+             }
+             
+             // Space handling
+             if (finalTranscript && !finalTranscript.endsWith(' ') && !transcriptChunk.startsWith(' ')) {
+                 finalTranscript += ' ';
+             }
+             finalTranscript += transcriptChunk;
           } else {
-            interimTranscript += event.results[i][0].transcript;
+             // Space handling for interim
+             if (interimTranscript && !interimTranscript.endsWith(' ') && !transcriptChunk.startsWith(' ')) {
+                interimTranscript += ' ';
+             }
+             interimTranscript += transcriptChunk;
           }
         }
 
         // ANDROID FIX: Deduplicate text
         // On some Android devices, the interim transcript includes the already finalized text.
-        // We check if interim strictly starts with final (ignoring case/trim issues slightly)
         let currentText = finalTranscript + interimTranscript;
         
-        const cleanFinal = finalTranscript.trim().toLowerCase();
-        const cleanInterim = interimTranscript.trim().toLowerCase();
+        // Use normalized comparison
+        const f = finalTranscript.trim().toLowerCase();
+        const i_text = interimTranscript.trim().toLowerCase();
 
-        if (cleanFinal.length > 0 && cleanInterim.startsWith(cleanFinal)) {
-            // Overlap detected: Use interim as the full source of truth
+        // If interim starts with final, use interim
+        if (f.length > 0 && i_text.startsWith(f)) {
             currentText = interimTranscript;
         }
+
+        // Extra cleanup for display: remove excessive spaces
+        currentText = currentText.replace(/\s+/g, ' ').trim();
 
         setDetectedText(currentText);
         detectedTextRef.current = currentText; // Update ref for interval

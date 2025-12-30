@@ -55,6 +55,10 @@ export const FinanceProvider = ({ children }) => {
         if (userProfile.attendanceLog) {
           setAttendance(userProfile.attendanceLog);
         }
+
+        if (userProfile.transactions && Array.isArray(userProfile.transactions)) {
+            setTransactions(userProfile.transactions);
+        }
     }
   }, [userProfile]);
 
@@ -136,16 +140,51 @@ export const FinanceProvider = ({ children }) => {
 
   useEffect(() => {
     localStorage.setItem('tim_transactions', JSON.stringify(transactions));
-  }, [transactions]);
+    
+    if (currentUser) {
+        const saveTransactions = async () => {
+             try {
+                const userRef = doc(db, 'users', currentUser.uid);
+                await setDoc(userRef, { transactions }, { merge: true });
+            } catch (error) {
+                console.error("Error saving transactions:", error);
+            }
+        };
+        saveTransactions();
+    }
+  }, [transactions, currentUser]);
 
-  const updateOnboarding = (salary, days, hours) => {
+  const updateOnboarding = async (salary, days, hours) => {
     const rate = calculateHourlyRate(salary, days, hours);
-    setUserSettings({
+    const newSettings = {
       salary: parseTurkishNumber(salary),
       workingDays: parseInt(days),
       workingHours: parseInt(hours),
       hourlyRate: rate
-    });
+    };
+    
+    setUserSettings(newSettings);
+
+    if (currentUser) {
+        try {
+            const userRef = doc(db, 'users', currentUser.uid);
+            const h = parseInt(hours) || 8;
+            const startHour = 9;
+            const endHour = startHour + h;
+            const fixedStart = `${startHour.toString().padStart(2, '0')}:00`;
+            const fixedEnd = `${endHour > 23 ? endHour - 24 : endHour}:00`;
+
+            await setDoc(userRef, { 
+                monthlySalary: salary.toString(),
+                workingDays: days.toString(),
+                fixedStart,
+                fixedEnd,
+                scheduleType: 'fixed'
+            }, { merge: true });
+        } catch (error) {
+            console.error("Error updating onboarding:", error);
+        }
+    }
   };
 
   const addTransaction = (amount, title, category = 'General') => {
