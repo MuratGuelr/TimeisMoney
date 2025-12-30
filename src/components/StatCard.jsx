@@ -15,7 +15,7 @@ const StatCard = ({ title, value, icon: Icon, delay = 0, type = 'neutral' }) => 
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: delay * 0.1, ease: "backOut" }}
             className={`
-                relative overflow-hidden rounded-2xl border p-6 flex flex-col items-center justify-center text-center group backdrop-blur-sm
+                relative overflow-hidden rounded-2xl border p-4 sm:p-6 flex flex-col items-center justify-center text-center group backdrop-blur-sm
                 ${styles[type] || styles.neutral}
             `}
         >
@@ -24,13 +24,13 @@ const StatCard = ({ title, value, icon: Icon, delay = 0, type = 'neutral' }) => 
              <div className="absolute bottom-0 right-0 w-2 h-2 border-r border-b border-current opacity-50" />
 
              {Icon && (
-                 <div className="mb-3 opacity-80 group-hover:scale-110 transition-transform duration-300">
-                     <Icon size={24} strokeWidth={1.5} />
+                 <div className="mb-2 sm:mb-3 opacity-80 group-hover:scale-110 transition-transform duration-300">
+                     <Icon size={20} className="sm:w-6 sm:h-6" strokeWidth={1.5} />
                  </div>
              )}
 
-             <span className="text-3xl font-mono font-bold tracking-tighter mb-1 text-white">{value}</span>
-             <span className="text-[10px] uppercase tracking-[0.2em] font-bold opacity-60">{title}</span>
+             <span className="text-xl sm:text-3xl font-mono font-bold tracking-tighter mb-1 text-white break-all sm:break-normal">{value}</span>
+             <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] font-bold opacity-60 whitespace-nowrap">{title}</span>
         </motion.div>
     );
 };

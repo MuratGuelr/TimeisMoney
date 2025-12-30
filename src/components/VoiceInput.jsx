@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Mic, Keyboard, X, Check, AlertCircle, StopCircle } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { calculateTimeCost, formatCurrency, formatTurkishNumber, parseTurkishNumber } from '../utils/timeCalculations';
 import VoiceOrb from './VoiceOrb';
 
-const VoiceInput = () => {
+const VoiceInput = ({ children }) => {
   const [isListening, setIsListening] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [detectedText, setDetectedText] = useState('');
@@ -37,16 +38,12 @@ const VoiceInput = () => {
 
             // Only start countdown if we have some text
             if (timeSinceLastSpeech > SILENCE_THRESHOLD && detectedTextRef.current.trim().length > 0) {
-                // Calculate remaining time for the 3s countdown
-                // Total wait time = SILENCE_THRESHOLD + COUNTDOWN_DURATION
-                // We want to show 3...2...1 during the COUNTDOWN_DURATION part
                 const timeInCountdown = timeSinceLastSpeech - SILENCE_THRESHOLD;
                 const remaining = Math.max(0, Math.ceil((COUNTDOWN_DURATION - timeInCountdown) / 1000));
                 
                 setCountdown(remaining);
 
                 if (remaining <= 0) {
-                    // Trigger Finish
                     recognitionRef.current?.stop();
                     setIsListening(false);
                     parseVoiceCommand(detectedTextRef.current);
@@ -110,7 +107,6 @@ const VoiceInput = () => {
         let finalBuilder = '';
         let interimBuilder = '';
 
-        // Reconstruct the full transcript from all results using smartJoin
         for (let i = 0; i < event.results.length; ++i) {
             const chunk = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
@@ -120,8 +116,6 @@ const VoiceInput = () => {
             }
         }
 
-        // Combine Final + Interim with smartJoin logic as well
-        // We shouldn't just append interim to final blindly, overlap might exist here too
         let currentText = smartJoin(finalBuilder, interimBuilder);
 
         setDetectedText(currentText);
@@ -158,7 +152,6 @@ const VoiceInput = () => {
     let title = text;
     let amountStr = '';
 
-    // Strategy 1: Look for explicit currency markers
     const currencyRegex = /([\d.,]+)\s*(?:tl|lira|₺|türk lirası)/i;
     const currencyMatch = text.match(currencyRegex);
 
@@ -166,7 +159,6 @@ const VoiceInput = () => {
       amountStr = currencyMatch[1];
       title = text.replace(currencyMatch[0], '').trim();
     } else {
-      // Strategy 2: Fallback to the LAST number
       const allNumbers = text.match(/([\d.,]+)/g);
       if (allNumbers && allNumbers.length > 0) {
         amountStr = allNumbers[allNumbers.length - 1];
@@ -192,41 +184,23 @@ const VoiceInput = () => {
     
     if (!title || title.length === 0) title = 'Genel';
 
-    // Auto-Detect Category Strategy
     const detectCategory = (text) => {
         const t = text.toLowerCase();
-        
-        // 1. HOUSING & BILLS (Ev & Faturalar)
         if (t.match(/(kira|aidat|depozito|emlak|komisyon|nakliye)/)) return 'Konut';
         if (t.match(/(fatura|elektrik|su|doğalgaz|internet|telefon|gsm|turkcell|vodafone|telekom|superonline|kablonet|digiturk|tivibu|netflix|spotify|youtube|üyelik|abonelik)/)) return 'Faturalar';
-
-        // 2. FOOD & DRINK (Yeme & İçme & Market)
         if (t.match(/(market|bakkal|büfe|manav|kasap|fırın|bim|a101|şok|migros|carrefour|file|macro|getir|isteğelsin)/)) return 'Market';
         if (t.match(/(yemek|restoran|cafe|kafe|kahve|çay|starbucks|espresso|latte|su|döner|kebap|lahmacun|pide|pizza|burger|sandviç|tost|simit|poğaça|çorba|tatlı|baklava|künefe|dondurma|yemeksepeti|trendiolyemek)/)) return 'Yeme-İçme';
-
-        // 3. TRANSPORT (Ulaşım)
         if (t.match(/(taksi|uber|bitaksi|martı|binbin|otobüs|lave|metro|metrobüs|marmaray|tramvay|vapur|dolmuş|minibüs|akbil|istanbulkart|bilet)/)) return 'Ulaşım';
         if (t.match(/(benzin|mazot|lpg|yakıt|shell|opet|bp|petrol|otopark|park|hgs|ogs|ceza|araba|bakım|tamir|sanayi|lastik|muayene)/)) return 'Araç';
-
-        // 4. SHOPPING (Alışveriş)
         if (t.match(/(kıyafet|giyim|ayakkabı|bot|mont|ceket|pantolon|gömlek|tişört|kazak|elbise|etek|çanta|cüzdan|şapka|saat|takı|aksesuar)/)) return 'Alışveriş';
         if (t.match(/(zara|mango|h&m|lcw|lc waikiki|koton|defacto|mavi|boyner|beymen|stradivarius|pull&bear|bershka|nike|adidas|puma)/)) return 'Alışveriş';
         if (t.match(/(trendyol|hepsiburada|amazon|n11|çiçeksepeti|ikea|koçtaş|bauhaus|teknosa|mediamarkt|vatan|apple|samsung|telefon|bilgisayar|tablet|kulaklık|şarj)/)) return 'Alışveriş';
-
-        // 5. HEALTH & PERSONAL (Sağlık & Bakım)
         if (t.match(/(eczane|ilaç|vitamin|ağrı kesici|antibiyotik|hastane|doktor|muayene|tahlil|diş|dişçi|göz|lens|psikolog|terapi)/)) return 'Sağlık';
         if (t.match(/(berber|kuaför|saç|sakal|ağda|epilasyon|cilt|bakım|kozmetik|gratis|watsons|rossmann|parfüm|deodorant|krem|şampuan)/)) return 'Bakım';
-
-        // 6. ENTERTAINMENT & HOBBY (Eğlence)
         if (t.match(/(sinema|film|tiyatro|konser|maç|oyun|steam|playstation|xbox|oyuncak|hobi|kitap|dergi|kırtasiye|tatil|otel|uçak|tur)/)) return 'Eğlence';
-
-        // 7. FINANCE & DEBT (Finans)
         if (t.match(/(kredi|taksit|borç|kart|ekstre|avans|kyk|vergi|harç|sigorta|kasko)/)) return 'Finans';
-
-        // Fallback checks for broader terms if specific ones didn't match
         if (t.includes('alışveriş')) return 'Alışveriş';
         if (t.includes('ödeme')) return 'Faturalar';
-
         return 'Genel';
     };
 
@@ -239,10 +213,8 @@ const VoiceInput = () => {
   const toggleListening = () => {
     setErrorDetails('');
     if (isListening) {
-      // Manual Stop (Immediate)
       recognitionRef.current?.stop();
       setIsListening(false);
-      // If we have text, try to parse it immediately instead of just stopping
       if (detectedTextRef.current) {
           parseVoiceCommand(detectedTextRef.current);
       }
@@ -288,27 +260,35 @@ const VoiceInput = () => {
   return (
     <>
       {/* Error Toast */}
-      {errorDetails && (
-          <div className="fixed top-24 left-1/2 -translate-x-1/2 bg-red-500/90 text-white px-4 py-2 rounded-full shadow-lg z-50 flex items-center gap-2 animate-bounce-in text-sm">
+      {errorDetails && createPortal(
+          <div className="fixed top-24 left-1/2 -translate-x-1/2 bg-red-500/90 text-white px-4 py-2 rounded-full shadow-lg z-[60] flex items-center gap-2 animate-bounce-in text-sm pointer-events-none">
               <AlertCircle size={16} /> {errorDetails}
+          </div>,
+          document.body
+      )}
+
+      {/* Trigger: Render children if present, otherwise default Orb */}
+      {children ? (
+          <div onClick={toggleListening} className="cursor-pointer">
+              {children}
+          </div>
+      ) : (
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 pointer-events-auto">
+             <VoiceOrb isListening={isListening} onClick={toggleListening} />
           </div>
       )}
 
-      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 pointer-events-auto">
-        <VoiceOrb isListening={isListening} onClick={toggleListening} />
-      </div>
-
       {/* Listening Overlay (Real-time) */}
-      {isListening && (
-        <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-50 flex flex-col items-center justify-center p-6 animate-fade-in pointer-events-auto">
+      {isListening && createPortal(
+        <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[100] flex flex-col items-center justify-center p-6 animate-fade-in pointer-events-auto">
            {/* Visuals */}
-           <div className="mb-12 relative flex items-center justify-center">
+           <div className="mb-8 relative flex items-center justify-center">
               <div className="w-32 h-32 bg-primary/20 rounded-full animate-pulse-slow absolute"></div>
               <div 
                   onClick={toggleListening}
                   className="w-24 h-24 bg-primary rounded-full flex items-center justify-center relative z-10 shadow-lg shadow-primary/30 cursor-pointer hover:scale-105 transition-transform opacity-50"
               >
-                  <Mic size={40} className="text-white animate-bounce-gentle" />
+                  <StopCircle size={40} className="text-white animate-pulse" />
               </div>
               
               {/* Spinning rings or Countdown Ring */}
@@ -325,7 +305,7 @@ const VoiceInput = () => {
            </div>
 
            {/* Live Text */}
-           <div className="w-full max-w-2xl text-center space-y-6">
+           <div className="w-full max-w-2xl text-center space-y-6 mb-20">
               {countdown !== null ? (
                    <p className="text-emerald-400 text-lg font-bold uppercase tracking-[0.3em] animate-pulse">Otomatik Onaylanıyor...</p>
               ) : (
@@ -340,15 +320,13 @@ const VoiceInput = () => {
                   {countdown !== null ? "İptal etmek için konuşun" : "Örnek: 'Market 50 TL'"}
               </p>
            </div>
-
-           {/* Actions */}
-
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Confirmation Modal (Voice) */}
-      {showModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-auto">
+      {showModal && createPortal(
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 pointer-events-auto">
              {/* Backdrop */}
             <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowModal(false)} />
             
@@ -393,13 +371,14 @@ const VoiceInput = () => {
                 </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Manual Input Modal */}
-      {showManualInput && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 pointer-events-auto">
-             <div className="bg-surface border-t sm:border border-white/10 w-full max-w-md p-6 rounded-t-3xl sm:rounded-3xl shadow-2xl animate-slide-up sm:animate-fade-in pb-12 sm:pb-6">
+      {showManualInput && createPortal(
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 pointer-events-auto">
+             <div className="bg-surface border border-white/10 w-full max-w-md p-6 rounded-3xl shadow-2xl animate-slide-up sm:animate-fade-in relative z-10">
                 <div className="flex justify-between items-center mb-6">
                      <h3 className="text-white font-bold text-xl">Harcama Ekle</h3>
                      <button onClick={() => setShowManualInput(false)} className="text-gray-400 hover:text-white">
@@ -443,7 +422,8 @@ const VoiceInput = () => {
                     </button>
                 </form>
              </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

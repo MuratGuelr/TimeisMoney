@@ -59,7 +59,7 @@ const Dashboard = () => {
         <div className="fixed bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-[100px] pointer-events-none" />
 
        {/* Header / HUD Top */}
-       <header className="p-6 pt-8 flex justify-between items-start z-20 relative">
+       <header className="p-5 pt-5 flex justify-between items-start z-20 relative">
             <div>
                 <motion.h1 
                     initial={{ opacity: 0, x: -20 }}
@@ -87,9 +87,9 @@ const Dashboard = () => {
             </div>
         </header>
 
-        <main className="p-6 space-y-8 z-10 relative">
+        <main className="p-4 space-y-5 z-10 relative">
             {/* COCKPIT / ENGINE SECTION */}
-            <section className="relative py-8">
+            <section className="relative py-0">
                  <div className="relative flex flex-col items-center justify-center text-center">
                     
                     {/* Status Label */}
@@ -116,7 +116,7 @@ const Dashboard = () => {
                                 repeat: Infinity, 
                                 ease: "easeInOut" 
                             }}
-                            className="flex items-baseline justify-center font-mono font-black tracking-tighter text-7xl sm:text-8xl text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 drop-shadow-2xl"
+                            className="flex items-baseline justify-center font-mono font-black tracking-tighter text-5xl sm:text-7xl md:text-8xl text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 drop-shadow-2xl"
                         >
                              <LiveTicker value={instantEarnings} suffix="₺" />
                         </motion.div>
@@ -160,7 +160,7 @@ const Dashboard = () => {
             </section>
 
             {/* STATS GRID */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
                 <StatCard 
                     title="MESAİ MALİYETİ" 
                     value={`${totalHoursSpent}s`} 
@@ -187,9 +187,7 @@ const Dashboard = () => {
             <TransactionList />
         </main>
         
-        <div className="fixed bottom-24 left-0 right-0 z-30 pointer-events-none">
-             <VoiceInput customTrigger={true} /> 
-        </div>
+
     </div>
   );
 };
