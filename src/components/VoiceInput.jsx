@@ -88,7 +88,19 @@ const VoiceInput = () => {
           }
         }
 
-        const currentText = finalTranscript + interimTranscript;
+        // ANDROID FIX: Deduplicate text
+        // On some Android devices, the interim transcript includes the already finalized text.
+        // We check if interim strictly starts with final (ignoring case/trim issues slightly)
+        let currentText = finalTranscript + interimTranscript;
+        
+        const cleanFinal = finalTranscript.trim().toLowerCase();
+        const cleanInterim = interimTranscript.trim().toLowerCase();
+
+        if (cleanFinal.length > 0 && cleanInterim.startsWith(cleanFinal)) {
+            // Overlap detected: Use interim as the full source of truth
+            currentText = interimTranscript;
+        }
+
         setDetectedText(currentText);
         detectedTextRef.current = currentText; // Update ref for interval
         setErrorDetails('');
